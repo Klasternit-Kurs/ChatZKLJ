@@ -1,0 +1,65 @@
+﻿@page "/chat"
+@using ChatZKLJ.Shared
+@using Microsoft.AspNetCore.SignalR.Client
+@inject NavigationManager NM
+
+<h3>Chat</h3>
+
+@if (LogIn)
+{
+	<EditForm Model="TrenutniKorisnik" OnSubmit="Logovanje">
+		<InputText @bind-Value="TrenutniKorisnik.KorisnickoIme" />
+		<button class="btn-primary" type="submit">Log in</button>
+	</EditForm>
+}
+else
+{
+	@foreach (Poruka p in Poruke)
+	{
+		<p>@p.Poslata --- @p.Posiljaoc.KorisnickoIme: @p.TeloPoruke</p>
+	}
+	<EditForm Model="trenutnaPoruka" OnSubmit="PosaljiPoruku">
+		<p>
+			<InputText @bind-Value="trenutnaPoruka.TeloPoruke" />
+			<button class="btn-outline-primary" type="submit">Posalji</button>
+		</p>
+	</EditForm>
+}
+
+
+
+@code
+{
+	public Korisnik TrenutniKorisnik = new Korisnik();
+	public Poruka trenutnaPoruka = new Poruka();
+	public bool LogIn = true;
+	public List<Poruka> Poruke = new List<Poruka>();
+	public HubConnection HC;
+
+	protected override async Task OnInitializedAsync()
+	{
+		HC = new HubConnectionBuilder().WithUrl(NM.ToAbsoluteUri("chat")).Build();
+		HC.On<Poruka>("PorukaKaKlijentu", (p) =>
+						{
+							Poruke.Add(p);
+							StateHasChanged();
+						});
+
+		await HC.StartAsync();
+	}
+
+	public void Logovanje()
+	{
+		LogIn = false;
+		StateHasChanged();
+	}
+
+	public void PosaljiPoruku()
+	{
+		trenutnaPoruka.Poslata = DateTime.Now;
+		trenutnaPoruka.Posiljaoc = TrenutniKorisnik;
+		HC.SendAsync("PrimiPoruku", trenutnaPoruka);
+		trenutnaPoruka = new Poruka();
+	}
+
+}
